@@ -1,0 +1,117 @@
+<!-- templates/welcome.tmpl -->
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .title }}</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'media',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Instrument Sans', 'sans-serif'] },
+                    colors: {
+                        go: {
+                            50: '#f0fafd', 100: '#e0f4fa', 500: '#00ADD8', 600: '#008bb0', 900: '#00465a', 950: '#002b3a'
+                        }
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-[#FDFDFC] dark:bg-[#0a0a0a] text-[#1b1b18] flex p-6 lg:p-8 items-center justify-center min-h-screen flex-col font-sans">
+    
+    <header class="w-full lg:max-w-4xl max-w-[335px] text-sm mb-6 flex justify-end">
+        <a href="http://localhost:5173" class="inline-block px-5 py-1.5 dark:text-[#EDEDEC] border-[#19140035] hover:border-[#1915014a] border text-[#1b1b18] dark:border-[#3E3E3A] dark:hover:border-[#62605b] rounded-sm text-sm font-medium transition-colors">
+            Buka Frontend App
+        </a>
+    </header>
+
+    <div class="flex items-center justify-center w-full lg:grow animate-fade-in-up">
+        <main class="flex max-w-[335px] w-full flex-col-reverse lg:max-w-4xl lg:flex-row shadow-xl rounded-lg lg:rounded-2xl overflow-hidden border border-slate-200 dark:border-[#3E3E3A]">
+            
+            <!-- Kolom Kiri: Konten & Link -->
+            <div class="flex-1 p-8 lg:p-16 bg-white dark:bg-[#161615] dark:text-[#EDEDEC] flex flex-col justify-center">
+                <h1 class="mb-2 text-2xl font-bold text-slate-800 dark:text-white">API Backend Aktif!</h1>
+                <p class="mb-8 text-[#706f6c] dark:text-[#A1A09A]">
+                    Sistem ERP berbasis Go dan Gin Gonic telah berhasil berjalan. Backend Anda siap menerima *request* dari antarmuka React.
+                </p>
+                
+                <ul class="flex flex-col mb-8 relative">
+                    <!-- Garis vertikal penghubung timeline -->
+                    <div class="absolute left-[0.4rem] top-4 bottom-4 w-px bg-slate-200 dark:bg-[#3E3E3A]"></div>
+                    
+                    <li class="flex items-center gap-4 py-3 relative">
+                        <span class="relative py-1 bg-white dark:bg-[#161615] z-10">
+                            <span class="flex items-center justify-center rounded-full bg-[#FDFDFC] dark:bg-[#161615] shadow-sm w-3.5 h-3.5 border dark:border-[#3E3E3A] border-[#e3e3e0]">
+                                <span class="rounded-full bg-[#00ADD8] w-1.5 h-1.5"></span>
+                            </span>
+                        </span>
+                        <span>
+                            Pelajari <a href="https://gin-gonic.com/docs/" target="_blank" class="font-semibold underline underline-offset-4 text-go-500 hover:text-go-600 transition-colors">Dokumentasi Gin</a>
+                        </span>
+                    </li>
+                    <li class="flex items-center gap-4 py-3 relative">
+                        <span class="relative py-1 bg-white dark:bg-[#161615] z-10">
+                            <span class="flex items-center justify-center rounded-full bg-[#FDFDFC] dark:bg-[#161615] shadow-sm w-3.5 h-3.5 border dark:border-[#3E3E3A] border-[#e3e3e0]">
+                                <span class="rounded-full bg-slate-300 dark:bg-[#3E3E3A] w-1.5 h-1.5"></span>
+                            </span>
+                        </span>
+                        <span>
+                            Eksplorasi sintaks Go di <a href="https://go.dev/tour/" target="_blank" class="font-semibold underline underline-offset-4 text-go-500 hover:text-go-600 transition-colors">A Tour of Go</a>
+                        </span>
+                    </li>
+                </ul>
+                
+                <div>
+                    <a href="/api/reports" class="inline-block dark:bg-[#eeeeec] dark:text-[#1C1C1A] dark:hover:bg-white bg-[#1b1b18] hover:bg-black px-6 py-2.5 rounded text-white text-sm font-semibold transition-colors">
+                        Uji Endpoint Laporan (/api/reports)
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Kolom Kanan: Logo Go & Visual Pattern -->
+            <div class="bg-go-50 dark:bg-go-950 relative aspect-square lg:aspect-auto lg:w-[400px] shrink-0 flex items-center justify-center overflow-hidden">
+                <!-- Ornamen Latar Belakang Lingkaran -->
+                <div class="absolute -top-20 -right-20 w-64 h-64 bg-go-500/10 dark:bg-go-500/5 rounded-full blur-3xl"></div>
+                <div class="absolute -bottom-20 -left-20 w-64 h-64 bg-blue-500/10 dark:bg-blue-500/5 rounded-full blur-3xl"></div>
+                
+                <!-- Logo Tipografi GO -->
+                <svg class="w-48 lg:w-64 text-go-500 drop-shadow-2xl z-10 animate-fade-in-up" viewBox="0 0 100 50" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21.5,41.4C10.7,41.4,2.5,33.1,2.5,22.3S10.7,3.2,21.5,3.2c5.8,0,10.6,2.2,14.2,5.8l-5.3,5.5 c-2.3-2.3-5.3-3.7-8.9-3.7c-6.5,0-11.5,5.1-11.5,11.5s5,11.5,11.5,11.5c4.7,0,8.1-2.4,10-6.1h-10v-7.3h17.9v2.8 C39.1,33.1,31.7,41.4,21.5,41.4z"/>
+                    <path d="M63.7,41.4c-10.8,0-19.1-8.3-19.1-19.1S52.9,3.2,63.7,3.2S82.8,11.5,82.8,22.3S74.5,41.4,63.7,41.4z M63.7,10.7 c-6.5,0-11.5,5.1-11.5,11.5s5,11.5,11.5,11.5s11.5-5.1,11.5-11.5S70.3,10.7,63.7,10.7z"/>
+                </svg>
+
+                <!-- Aksen Grid Background ala Server Backend -->
+                <svg class="absolute inset-0 w-full h-full opacity-[0.03] dark:opacity-[0.05] text-black dark:text-white" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="gridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <rect width="20" height="20" fill="none" stroke="currentColor" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#gridPattern)"/>
+                </svg>
+            </div>
+
+        </main>
+    </div>
+</body>
+</html>
