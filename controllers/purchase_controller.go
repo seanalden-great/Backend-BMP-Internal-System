@@ -243,18 +243,37 @@ func (pc *PurchaseController) CreateBill(c *gin.Context) {
 
 	// 2. Otomatis Buat Jurnal Akuntansi (Double-Entry)
 	// Cari Akun Persediaan (Biasanya kode berawalan '113' atau sesuaikan CoA Anda) dan Utang Usaha ('211')
+	// var inventoryAccount models.Account
+	// var apAccount models.Account
+
+	// tx.Where("code LIKE ?", "160%").First(&inventoryAccount) // Persediaan
+	// if inventoryAccount.Code == "" {
+	// 	tx.Where("code LIKE ?", "11%").First(&inventoryAccount) // Fallback ke aset lancar jika tidak ketemu
+	// }
+	// tx.Where("code LIKE ?", "310%").First(&apAccount)         // Utang Usaha
+
+	// if inventoryAccount.Code == "" || apAccount.Code == "" {
+	// 	tx.Rollback()
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan atau Utang Usaha belum dikonfigurasi di CoA"})
+	// 	return
+	// }
+	
+	// 2. Otomatis Buat Jurnal Akuntansi (Double-Entry)
 	var inventoryAccount models.Account
 	var apAccount models.Account
 
-	tx.Where("code LIKE ?", "160%").First(&inventoryAccount) // Persediaan
+	// PERBAIKAN: Cari berdasarkan awalan 16% DAN wajib is_header = false (Akun Detail)
+	tx.Where("code LIKE ? AND is_header = ?", "16%", false).First(&inventoryAccount) // Persediaan
 	if inventoryAccount.Code == "" {
-		tx.Where("code LIKE ?", "11%").First(&inventoryAccount) // Fallback ke aset lancar jika tidak ketemu
+		tx.Where("code LIKE ? AND is_header = ?", "11%", false).First(&inventoryAccount) // Fallback
 	}
-	tx.Where("code LIKE ?", "310%").First(&apAccount)         // Utang Usaha
+	
+	// PERBAIKAN: Cari berdasarkan awalan 31% DAN wajib is_header = false (Akun Detail)
+	tx.Where("code LIKE ? AND is_header = ?", "31%", false).First(&apAccount)         // Utang Usaha
 
 	if inventoryAccount.Code == "" || apAccount.Code == "" {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan atau Utang Usaha belum dikonfigurasi di CoA"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan atau Utang Usaha (Detail) belum dikonfigurasi di CoA"})
 		return
 	}
 

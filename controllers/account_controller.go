@@ -306,8 +306,8 @@ package controllers
 
 import (
 	"net/http"
-	"strings"
 
+	// "strings"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
@@ -344,23 +344,83 @@ func (ac *AccountController) GetChartOfAccounts(c *gin.Context) {
 
 	var response []map[string]interface{}
 
-	for _, acc := range accounts {
+	// for _, acc := range accounts {
+	// 	var debit, kredit, sisa float64
+
+	// 	if acc.IsHeader {
+	// 		for _, s := range sums {
+	// 			if strings.HasPrefix(s.AccountCode, acc.Code) {
+	// 				debit += s.TotalDebit
+	// 				kredit += s.TotalCredit
+	// 			}
+	// 		}
+	// 	} else {
+	// 		if s, exists := sumMap[acc.Code]; exists {
+	// 			debit = s.TotalDebit
+	// 			kredit = s.TotalCredit
+	// 		}
+	// 	}
+
+	// 	if acc.NormalBalance == "D" {
+	// 		sisa = debit - kredit
+	// 	} else if acc.NormalBalance == "K" {
+	// 		sisa = kredit - debit
+	// 	} else {
+	// 		sisa = debit - kredit
+	// 		if sisa < 0 {
+	// 			sisa = -sisa
+	// 		}
+	// 	}
+
+	// 	item := map[string]interface{}{
+	// 		"code":     acc.Code,
+	// 		"name":     acc.Name,
+	// 		"isHeader": acc.IsHeader,
+	// 		"pos":      acc.NormalBalance,
+	// 		"level":    acc.Level,
+	// 	}
+	// 	if debit > 0 { item["debit"] = debit }
+	// 	if kredit > 0 { item["kredit"] = kredit }
+	// 	if sisa > 0 { item["sisa"] = sisa }
+
+	// 	response = append(response, item)
+	// }
+
+	// c.JSON(http.StatusOK, gin.H{
+	// 	"status": "success",
+	// 	"data":   response,
+	// })
+	
+	for i, acc := range accounts {
 		var debit, kredit, sisa float64
 
 		if acc.IsHeader {
-			for _, s := range sums {
-				if strings.HasPrefix(s.AccountCode, acc.Code) {
-					debit += s.TotalDebit
-					kredit += s.TotalCredit
+			// LOGIKA BARU: Jumlahkan nilai dari akun anak berdasarkan LEVEL, bukan Prefix String
+			for j := i + 1; j < len(accounts); j++ {
+				child := accounts[j]
+				
+				// Jika bertemu dengan akun sejajar (level sama) atau induk lain (level lebih kecil), berhenti.
+				if child.Level <= acc.Level {
+					break 
+				}
+				
+				// Hanya jumlahkan nominal jika anak tersebut adalah Akun Detail
+				if !child.IsHeader {
+					if s, exists := sumMap[child.Code]; exists {
+						debit += s.TotalDebit
+						kredit += s.TotalCredit
+					}
 				}
 			}
 		} else {
+			// Jika ini akun detail, langsung ambil saldonya
 			if s, exists := sumMap[acc.Code]; exists {
 				debit = s.TotalDebit
 				kredit = s.TotalCredit
 			}
 		}
 
+		// Hitung Sisa Saldo sesuai Pos Normal Balance
 		if acc.NormalBalance == "D" {
 			sisa = debit - kredit
 		} else if acc.NormalBalance == "K" {
@@ -368,7 +428,7 @@ func (ac *AccountController) GetChartOfAccounts(c *gin.Context) {
 		} else {
 			sisa = debit - kredit
 			if sisa < 0 {
-				sisa = -sisa
+				sisa = -sisa // Absolutkan jika netral
 			}
 		}
 
