@@ -172,6 +172,7 @@ func ConnectDatabase() {
 	}
 
 	// 3. Susun DSN (Data Source Name)
+	// dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=false",
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=false",
 		user, password, host, port, dbname)
 
