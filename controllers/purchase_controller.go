@@ -202,14 +202,128 @@ func (pc *PurchaseController) ReceivePurchase(c *gin.Context) {
 
 type BillInput struct {
 	DueDate string `json:"due_date" binding:"required"`
+	PaymentAccount string `json:"payment_account" binding:"required"` // Tambahan: Menerima kode bank dari frontend
 }
+
+// PUT /api/purchases/:id/bill
+// func (pc *PurchaseController) CreateBill(c *gin.Context) {
+// 	id := c.Param("id")
+// 	var input BillInput
+// 	if err := c.ShouldBindJSON(&input); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format tanggal jatuh tempo tidak valid"})
+// 		return
+// 	}
+
+// 	parsedDueDate, err := time.Parse("2006-01-02", input.DueDate)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format tanggal salah, gunakan YYYY-MM-DD"})
+// 		return
+// 	}
+
+// 	var purchase models.Purchase
+// 	if err := pc.DB.Preload("Items").First(&purchase, id).Error; err != nil {
+// 		c.JSON(http.StatusNotFound, gin.H{"error": "Data pengiriman pembelian tidak ditemukan"})
+// 		return
+// 	}
+
+// 	if purchase.Status != "Pengiriman" {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Hanya dokumen dengan status 'Pengiriman' yang dapat dibuatkan tagihan"})
+// 		return
+// 	}
+
+// 	tx := pc.DB.Begin()
+
+// 	// 1. Update Status dan Tanggal Jatuh Tempo Header
+// 	purchase.Status = "Tagihan"
+// 	purchase.DueDate = parsedDueDate
+// 	if err := tx.Save(&purchase).Error; err != nil {
+// 		tx.Rollback()
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate status tagihan"})
+// 		return
+// 	}
+
+// 	// 2. Otomatis Buat Jurnal Akuntansi (Double-Entry)
+// 	// Cari Akun Persediaan (Biasanya kode berawalan '113' atau sesuaikan CoA Anda) dan Utang Usaha ('211')
+// 	// var inventoryAccount models.Account
+// 	// var apAccount models.Account
+
+// 	// tx.Where("code LIKE ?", "160%").First(&inventoryAccount) // Persediaan
+// 	// if inventoryAccount.Code == "" {
+// 	// 	tx.Where("code LIKE ?", "11%").First(&inventoryAccount) // Fallback ke aset lancar jika tidak ketemu
+// 	// }
+// 	// tx.Where("code LIKE ?", "310%").First(&apAccount)         // Utang Usaha
+
+// 	// if inventoryAccount.Code == "" || apAccount.Code == "" {
+// 	// 	tx.Rollback()
+// 	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan atau Utang Usaha belum dikonfigurasi di CoA"})
+// 	// 	return
+// 	// }
+	
+// 	// 2. Otomatis Buat Jurnal Akuntansi (Double-Entry)
+// 	var inventoryAccount models.Account
+// 	var apAccount models.Account
+
+// 	// PERBAIKAN: Cari berdasarkan awalan 16% DAN wajib is_header = false (Akun Detail)
+// 	tx.Where("code LIKE ? AND is_header = ?", "16%", false).First(&inventoryAccount) // Persediaan
+// 	if inventoryAccount.Code == "" {
+// 		tx.Where("code LIKE ? AND is_header = ?", "11%", false).First(&inventoryAccount) // Fallback
+// 	}
+	
+// 	// PERBAIKAN: Cari berdasarkan awalan 31% DAN wajib is_header = false (Akun Detail)
+// 	tx.Where("code LIKE ? AND is_header = ?", "31%", false).First(&apAccount)         // Utang Usaha
+
+// 	if inventoryAccount.Code == "" || apAccount.Code == "" {
+// 		tx.Rollback()
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan atau Utang Usaha (Detail) belum dikonfigurasi di CoA"})
+// 		return
+// 	}
+
+// 	// journalCode := "BILL-" + time.Now().Format("20060102") + "-" + id
+// 	// journal := models.Journal{
+// 	// 	Date:        time.Now(),
+// 	// 	Description: "Tagihan Pembelian dari PO #" + id + " (Ref: " + purchase.ReferenceNo + ")",
+// 	// 	Reference:   journalCode,
+// 	// }
+	
+// 	journalCode := "BILL-" + time.Now().Format("20060102") + "-" + id
+// 	journal := models.Journal{
+// 		Date:        time.Now(),
+// 		// Masukkan journalCode ke dalam Description
+// 		Description: "Tagihan Pembelian dari PO #" + id + " (Ref: " + purchase.ReferenceNo + ") - " + journalCode, 
+// 	}
+
+// 	if err := tx.Create(&journal).Error; err != nil {
+// 		tx.Rollback()
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat jurnal akuntansi"})
+// 		return
+// 	}
+
+// 	entries := []models.JournalEntry{
+// 		{JournalID: journal.ID, AccountCode: inventoryAccount.Code, Debit: purchase.Total, Credit: 0},
+// 		{JournalID: journal.ID, AccountCode: apAccount.Code, Debit: 0, Credit: purchase.Total},
+// 	}
+
+// 	for _, entry := range entries {
+// 		if err := tx.Create(&entry).Error; err != nil {
+// 			tx.Rollback()
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mencatat rincian jurnal"})
+// 			return
+// 		}
+// 	}
+
+// 	tx.Commit()
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"status":  "success",
+// 		"message": "Tagihan Pembelian berhasil diterbitkan & Jurnal Akuntansi otomatis tercatat!",
+// 	})
+// }
 
 // PUT /api/purchases/:id/bill
 func (pc *PurchaseController) CreateBill(c *gin.Context) {
 	id := c.Param("id")
 	var input BillInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format tanggal jatuh tempo tidak valid"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format input tagihan tidak valid"})
 		return
 	}
 
@@ -241,54 +355,29 @@ func (pc *PurchaseController) CreateBill(c *gin.Context) {
 		return
 	}
 
-	// 2. Otomatis Buat Jurnal Akuntansi (Double-Entry)
-	// Cari Akun Persediaan (Biasanya kode berawalan '113' atau sesuaikan CoA Anda) dan Utang Usaha ('211')
-	// var inventoryAccount models.Account
-	// var apAccount models.Account
-
-	// tx.Where("code LIKE ?", "160%").First(&inventoryAccount) // Persediaan
-	// if inventoryAccount.Code == "" {
-	// 	tx.Where("code LIKE ?", "11%").First(&inventoryAccount) // Fallback ke aset lancar jika tidak ketemu
-	// }
-	// tx.Where("code LIKE ?", "310%").First(&apAccount)         // Utang Usaha
-
-	// if inventoryAccount.Code == "" || apAccount.Code == "" {
-	// 	tx.Rollback()
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan atau Utang Usaha belum dikonfigurasi di CoA"})
-	// 	return
-	// }
-	
-	// 2. Otomatis Buat Jurnal Akuntansi (Double-Entry)
+	// 2. Otomatis Buat Jurnal Akuntansi (Debit: Persediaan, Kredit: Bank)
 	var inventoryAccount models.Account
-	var apAccount models.Account
+	var bankAccount models.Account
 
-	// PERBAIKAN: Cari berdasarkan awalan 16% DAN wajib is_header = false (Akun Detail)
-	tx.Where("code LIKE ? AND is_header = ?", "16%", false).First(&inventoryAccount) // Persediaan
+	// Cari Akun Persediaan
+	tx.Where("code LIKE ? AND is_header = ?", "16%", false).First(&inventoryAccount)
 	if inventoryAccount.Code == "" {
-		tx.Where("code LIKE ? AND is_header = ?", "11%", false).First(&inventoryAccount) // Fallback
+		tx.Where("code LIKE ? AND is_header = ?", "11%", false).First(&inventoryAccount)
 	}
 	
-	// PERBAIKAN: Cari berdasarkan awalan 31% DAN wajib is_header = false (Akun Detail)
-	tx.Where("code LIKE ? AND is_header = ?", "31%", false).First(&apAccount)         // Utang Usaha
+	// Cari Akun Bank berdasarkan pilihan di Frontend
+	tx.Where("code = ? AND is_header = ?", input.PaymentAccount, false).First(&bankAccount)
 
-	if inventoryAccount.Code == "" || apAccount.Code == "" {
+	if inventoryAccount.Code == "" || bankAccount.Code == "" {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan atau Utang Usaha (Detail) belum dikonfigurasi di CoA"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan atau Akun Bank tidak ditemukan di sistem"})
 		return
 	}
 
-	// journalCode := "BILL-" + time.Now().Format("20060102") + "-" + id
-	// journal := models.Journal{
-	// 	Date:        time.Now(),
-	// 	Description: "Tagihan Pembelian dari PO #" + id + " (Ref: " + purchase.ReferenceNo + ")",
-	// 	Reference:   journalCode,
-	// }
-	
 	journalCode := "BILL-" + time.Now().Format("20060102") + "-" + id
 	journal := models.Journal{
 		Date:        time.Now(),
-		// Masukkan journalCode ke dalam Description
-		Description: "Tagihan Pembelian dari PO #" + id + " (Ref: " + purchase.ReferenceNo + ") - " + journalCode, 
+		Description: "Pembayaran Tagihan PO #" + id + " (Ref: " + purchase.ReferenceNo + ") - " + journalCode, 
 	}
 
 	if err := tx.Create(&journal).Error; err != nil {
@@ -297,9 +386,10 @@ func (pc *PurchaseController) CreateBill(c *gin.Context) {
 		return
 	}
 
+	// Debit: Persediaan (Barang Masuk) | Kredit: Bank (Uang Keluar)
 	entries := []models.JournalEntry{
 		{JournalID: journal.ID, AccountCode: inventoryAccount.Code, Debit: purchase.Total, Credit: 0},
-		{JournalID: journal.ID, AccountCode: apAccount.Code, Debit: 0, Credit: purchase.Total},
+		{JournalID: journal.ID, AccountCode: bankAccount.Code, Debit: 0, Credit: purchase.Total},
 	}
 
 	for _, entry := range entries {
@@ -313,6 +403,6 @@ func (pc *PurchaseController) CreateBill(c *gin.Context) {
 	tx.Commit()
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"message": "Tagihan Pembelian berhasil diterbitkan & Jurnal Akuntansi otomatis tercatat!",
+		"message": "Tagihan Pembelian lunas dibayar & Jurnal Kas Keluar otomatis tercatat!",
 	})
 }
