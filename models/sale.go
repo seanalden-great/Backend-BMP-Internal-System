@@ -14,6 +14,10 @@ type Sale struct {
 	Status      string    `gorm:"type:enum('Pesanan','Pengiriman','Tagihan','Lunas');default:'Pesanan'" json:"status"`
 	Total       float64   `gorm:"type:decimal(15,2);default:0" json:"total"`
 	Notes       string    `gorm:"type:text" json:"notes"`
+	
+	// === TAMBAHKAN 2 BARIS INI UNTUK MENYIMPAN BANK PENERIMA DANA ===
+	PaymentAccountCode *string    `gorm:"type:varchar(20)" json:"payment_account_code"`
+	PaymentAccount     *Account   `gorm:"foreignKey:PaymentAccountCode;references:Code" json:"payment_account"`
 
 	Contact     Contact    `gorm:"foreignKey:ContactID" json:"contact"`
 	Items       []SaleItem `gorm:"foreignKey:SaleID;constraint:OnDelete:CASCADE;" json:"items"`
