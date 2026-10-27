@@ -246,11 +246,11 @@ func (pc *PurchaseController) CreateBill(c *gin.Context) {
 	var inventoryAccount models.Account
 	var apAccount models.Account
 
-	tx.Where("code LIKE ?", "113%").First(&inventoryAccount) // Persediaan
+	tx.Where("code LIKE ?", "160%").First(&inventoryAccount) // Persediaan
 	if inventoryAccount.Code == "" {
 		tx.Where("code LIKE ?", "11%").First(&inventoryAccount) // Fallback ke aset lancar jika tidak ketemu
 	}
-	tx.Where("code LIKE ?", "211%").First(&apAccount)         // Utang Usaha
+	tx.Where("code LIKE ?", "310%").First(&apAccount)         // Utang Usaha
 
 	if inventoryAccount.Code == "" || apAccount.Code == "" {
 		tx.Rollback()
