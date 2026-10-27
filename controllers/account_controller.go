@@ -143,6 +143,164 @@
 // 	})
 // }
 
+// // controllers/account_controller.go
+// package controllers
+
+// import (
+// 	"net/http"
+// 	"strings"
+
+// 	"github.com/gin-gonic/gin"
+// 	"gorm.io/gorm"
+
+// 	"accounting-be/models"
+// )
+
+// type AccountController struct {
+// 	DB *gorm.DB
+// }
+
+// func (ac *AccountController) GetChartOfAccounts(c *gin.Context) {
+// 	var accounts []models.Account
+	
+// 	if err := ac.DB.Order("code asc").Find(&accounts).Error; err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data akun"})
+// 		return
+// 	}
+
+// 	type AccountSum struct {
+// 		AccountCode string
+// 		TotalDebit  float64
+// 		TotalCredit float64
+// 	}
+// 	var sums []AccountSum
+// 	ac.DB.Model(&models.JournalEntry{}).
+// 		Select("account_code, SUM(debit) as total_debit, SUM(credit) as total_credit").
+// 		Group("account_code").
+// 		Find(&sums)
+
+// 	sumMap := make(map[string]AccountSum)
+// 	for _, s := range sums {
+// 		sumMap[s.AccountCode] = s
+// 	}
+
+// 	var response []map[string]interface{}
+
+// 	for _, acc := range accounts {
+// 		var debit, kredit, sisa float64
+
+// 		if acc.IsHeader {
+// 			for _, s := range sums {
+// 				if strings.HasPrefix(s.AccountCode, acc.Code) {
+// 					debit += s.TotalDebit
+// 					kredit += s.TotalCredit
+// 				}
+// 			}
+// 		} else {
+// 			if s, exists := sumMap[acc.Code]; exists {
+// 				debit = s.TotalDebit
+// 				kredit = s.TotalCredit
+// 			}
+// 		}
+
+// 		// Perbaikan operator pengurangan yang sebelumnya hilang
+// 		if acc.NormalBalance == "D" {
+// 			sisa = debit - kredit
+// 		} else if acc.NormalBalance == "K" {
+// 			sisa = kredit - debit
+// 		} else {
+// 			sisa = debit - kredit
+// 			if sisa < 0 {
+// 				sisa = -sisa
+// 			}
+// 		}
+
+// 		item := map[string]interface{}{
+// 			"code":     acc.Code,
+// 			"name":     acc.Name,
+// 			"isHeader": acc.IsHeader,
+// 			"pos":      acc.NormalBalance,
+// 			"level":    acc.Level,
+// 		}
+// 		if debit > 0 { item["debit"] = debit }
+// 		if kredit > 0 { item["kredit"] = kredit }
+// 		if sisa > 0 { item["sisa"] = sisa }
+
+// 		response = append(response, item)
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"status": "success",
+// 		"data":   response,
+// 	})
+// }
+
+// func (ac *AccountController) GetBanks(c *gin.Context) {
+// 	var banks []models.Account
+	
+// 	if err := ac.DB.Where("code LIKE ? AND is_header = ?", "11%", false).Find(&banks).Error; err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data bank"})
+// 		return
+// 	}
+
+// 	var responseData []map[string]interface{}
+// 	for _, bank := range banks {
+// 		responseData = append(responseData, map[string]interface{}{
+// 			"id":   bank.Code,
+// 			"nama": bank.Name,
+// 			"rek":  "", 
+// 		})
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"status": "success",
+// 		"data":   responseData,
+// 	})
+// }
+
+// // Struktur input JSON untuk Tambah Akun
+// type AccountInput struct {
+// 	Code          string `json:"code" binding:"required"`
+// 	Name          string `json:"name" binding:"required"`
+// 	IsHeader      bool   `json:"isHeader"`
+// 	NormalBalance string `json:"pos" binding:"required"`
+// 	Level         int    `json:"level"`
+// }
+
+// // POST /api/accounts - Logika Simpan Akun Baru
+// func (ac *AccountController) CreateAccount(c *gin.Context) {
+// 	var input AccountInput
+// 	if err := c.ShouldBindJSON(&input); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid: " + err.Error()})
+// 		return
+// 	}
+
+// 	// Validasi apakah kode akun sudah ada
+// 	var existing models.Account
+// 	if err := ac.DB.Where("code = ?", input.Code).First(&existing).Error; err == nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Kode akun sudah terdaftar!"})
+// 		return
+// 	}
+
+// 	account := models.Account{
+// 		Code:          input.Code,
+// 		Name:          input.Name,
+// 		IsHeader:      input.IsHeader,
+// 		NormalBalance: input.NormalBalance,
+// 		Level:         input.Level,
+// 	}
+
+// 	if err := ac.DB.Create(&account).Error; err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan akun baru"})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"status":  "success",
+// 		"message": "Akun berhasil ditambahkan",
+// 	})
+// }
+
 // controllers/account_controller.go
 package controllers
 
@@ -203,7 +361,6 @@ func (ac *AccountController) GetChartOfAccounts(c *gin.Context) {
 			}
 		}
 
-		// Perbaikan operator pengurangan yang sebelumnya hilang
 		if acc.NormalBalance == "D" {
 			sisa = debit - kredit
 		} else if acc.NormalBalance == "K" {
@@ -258,7 +415,6 @@ func (ac *AccountController) GetBanks(c *gin.Context) {
 	})
 }
 
-// Struktur input JSON untuk Tambah Akun
 type AccountInput struct {
 	Code          string `json:"code" binding:"required"`
 	Name          string `json:"name" binding:"required"`
@@ -267,7 +423,6 @@ type AccountInput struct {
 	Level         int    `json:"level"`
 }
 
-// POST /api/accounts - Logika Simpan Akun Baru
 func (ac *AccountController) CreateAccount(c *gin.Context) {
 	var input AccountInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -275,7 +430,6 @@ func (ac *AccountController) CreateAccount(c *gin.Context) {
 		return
 	}
 
-	// Validasi apakah kode akun sudah ada
 	var existing models.Account
 	if err := ac.DB.Where("code = ?", input.Code).First(&existing).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Kode akun sudah terdaftar!"})
@@ -299,4 +453,52 @@ func (ac *AccountController) CreateAccount(c *gin.Context) {
 		"status":  "success",
 		"message": "Akun berhasil ditambahkan",
 	})
+}
+
+// === FUNGSI BARU: UPDATE AKUN ===
+func (ac *AccountController) UpdateAccount(c *gin.Context) {
+	code := c.Param("code")
+	var input AccountInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid: " + err.Error()})
+		return
+	}
+
+	var account models.Account
+	if err := ac.DB.Where("code = ?", code).First(&account).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Akun tidak ditemukan"})
+		return
+	}
+
+	account.Name = input.Name
+	account.IsHeader = input.IsHeader
+	account.NormalBalance = input.NormalBalance
+	account.Level = input.Level
+
+	if err := ac.DB.Save(&account).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui akun"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Akun berhasil diperbarui"})
+}
+
+// === FUNGSI BARU: DELETE AKUN ===
+func (ac *AccountController) DeleteAccount(c *gin.Context) {
+	code := c.Param("code")
+
+	// Proteksi: Cek apakah akun sudah dipakai di Jurnal
+	var count int64
+	ac.DB.Model(&models.JournalEntry{}).Where("account_code = ?", code).Count(&count)
+	if count > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Akun tidak bisa dihapus karena sudah memiliki riwayat transaksi jurnal!"})
+		return
+	}
+
+	if err := ac.DB.Where("code = ?", code).Delete(&models.Account{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus akun"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Akun berhasil dihapus"})
 }

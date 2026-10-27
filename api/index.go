@@ -326,6 +326,9 @@ func setupApp() {
 
 		api.GET("/accounts", accountController.GetChartOfAccounts)
 		api.POST("/accounts", accountController.CreateAccount)
+		api.PUT("/accounts/:code", accountController.UpdateAccount)
+		api.DELETE("/accounts/:code", accountController.DeleteAccount)
+		
 		api.GET("/banks", accountController.GetBanks)
 		api.GET("/journals/mutations", journalController.GetBankMutations)
 		api.POST("/journals", journalController.CreateJournal)
