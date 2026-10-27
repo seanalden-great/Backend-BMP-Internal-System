@@ -117,6 +117,7 @@ func (pc *PurchaseController) GetPurchases(c *gin.Context) {
 	query := pc.DB.Preload("Contact").
 		Preload("Items").
 		Preload("Items.Product").
+		Preload("PaymentAccount").
 		Order("date desc, id desc")
 
 	status := c.Query("status")
@@ -349,6 +350,7 @@ func (pc *PurchaseController) CreateBill(c *gin.Context) {
 	// 1. Update Status dan Tanggal Jatuh Tempo Header
 	purchase.Status = "Tagihan"
 	purchase.DueDate = parsedDueDate
+	purchase.PaymentAccountCode = &input.PaymentAccount
 	if err := tx.Save(&purchase).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate status tagihan"})
