@@ -38,8 +38,8 @@ func ConnectDatabase() {
 	}
 
 	// Auto Migrate: Membuat/memperbarui tabel berdasarkan struct GORM otomatis
-err = database.AutoMigrate(&models.Account{}, &models.Journal{}, &models.JournalEntry{}, &models.Product{}, &models.Category{}, &models.Contact{}, &models.Purchase{},     // <-- Tambahkan tabel Header Pembelian
-		&models.PurchaseItem{},&models.Sale{}, &models.SaleItem{},) // <-- Tambahkan tabel Detail Item Pembelian)
+	err = database.AutoMigrate(&models.Account{}, &models.Journal{}, &models.JournalEntry{}, &models.Product{}, &models.Category{}, &models.Contact{}, &models.Purchase{},
+		&models.PurchaseItem{}, &models.Sale{}, &models.SaleItem{}, &models.Expense{}, &models.StockAdjustment{}, &models.CompanySetting{},&models.FixedAsset{},&models.FAQ{},)
 	if err != nil {
 		fmt.Println("Peringatan: Gagal menjalankan AutoMigrate:", err)
 	}
