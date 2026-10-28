@@ -320,6 +320,96 @@ type BillInput struct {
 // }
 
 // PUT /api/purchases/:id/bill
+// func (pc *PurchaseController) CreateBill(c *gin.Context) {
+// 	id := c.Param("id")
+// 	var input BillInput
+// 	if err := c.ShouldBindJSON(&input); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format input tagihan tidak valid"})
+// 		return
+// 	}
+
+// 	parsedDueDate, err := time.Parse("2006-01-02", input.DueDate)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format tanggal salah, gunakan YYYY-MM-DD"})
+// 		return
+// 	}
+
+// 	var purchase models.Purchase
+// 	if err := pc.DB.Preload("Items").First(&purchase, id).Error; err != nil {
+// 		c.JSON(http.StatusNotFound, gin.H{"error": "Data pengiriman pembelian tidak ditemukan"})
+// 		return
+// 	}
+
+// 	if purchase.Status != "Pengiriman" {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Hanya dokumen dengan status 'Pengiriman' yang dapat dibuatkan tagihan"})
+// 		return
+// 	}
+
+// 	tx := pc.DB.Begin()
+
+// 	// 1. Update Status dan Tanggal Jatuh Tempo Header
+// 	purchase.Status = "Tagihan"
+// 	purchase.DueDate = parsedDueDate
+// 	purchase.PaymentAccountCode = &input.PaymentAccount
+// 	if err := tx.Save(&purchase).Error; err != nil {
+// 		tx.Rollback()
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate status tagihan"})
+// 		return
+// 	}
+
+// 	// 2. Otomatis Buat Jurnal Akuntansi (Debit: Persediaan, Kredit: Bank)
+// 	var inventoryAccount models.Account
+// 	var bankAccount models.Account
+
+// 	// Cari Akun Persediaan
+// 	tx.Where("code LIKE ? AND is_header = ?", "16%", false).First(&inventoryAccount)
+// 	if inventoryAccount.Code == "" {
+// 		tx.Where("code LIKE ? AND is_header = ?", "11%", false).First(&inventoryAccount)
+// 	}
+	
+// 	// Cari Akun Bank berdasarkan pilihan di Frontend
+// 	tx.Where("code = ? AND is_header = ?", input.PaymentAccount, false).First(&bankAccount)
+
+// 	if inventoryAccount.Code == "" || bankAccount.Code == "" {
+// 		tx.Rollback()
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan atau Akun Bank tidak ditemukan di sistem"})
+// 		return
+// 	}
+
+// 	journalCode := "BILL-" + time.Now().Format("20060102") + "-" + id
+// 	journal := models.Journal{
+// 		Date:        time.Now(),
+// 		Description: "Pembayaran Tagihan PO #" + id + " (Ref: " + purchase.ReferenceNo + ") - " + journalCode, 
+// 	}
+
+// 	if err := tx.Create(&journal).Error; err != nil {
+// 		tx.Rollback()
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat jurnal akuntansi"})
+// 		return
+// 	}
+
+// 	// Debit: Persediaan (Barang Masuk) | Kredit: Bank (Uang Keluar)
+// 	entries := []models.JournalEntry{
+// 		{JournalID: journal.ID, AccountCode: inventoryAccount.Code, Debit: purchase.Total, Credit: 0},
+// 		{JournalID: journal.ID, AccountCode: bankAccount.Code, Debit: 0, Credit: purchase.Total},
+// 	}
+
+// 	for _, entry := range entries {
+// 		if err := tx.Create(&entry).Error; err != nil {
+// 			tx.Rollback()
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mencatat rincian jurnal"})
+// 			return
+// 		}
+// 	}
+
+// 	tx.Commit()
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"status":  "success",
+// 		"message": "Tagihan Pembelian lunas dibayar & Jurnal Kas Keluar otomatis tercatat!",
+// 	})
+// }
+
+// PUT /api/purchases/:id/bill
 func (pc *PurchaseController) CreateBill(c *gin.Context) {
 	id := c.Param("id")
 	var input BillInput
@@ -347,7 +437,6 @@ func (pc *PurchaseController) CreateBill(c *gin.Context) {
 
 	tx := pc.DB.Begin()
 
-	// 1. Update Status dan Tanggal Jatuh Tempo Header
 	purchase.Status = "Tagihan"
 	purchase.DueDate = parsedDueDate
 	purchase.PaymentAccountCode = &input.PaymentAccount
@@ -357,29 +446,31 @@ func (pc *PurchaseController) CreateBill(c *gin.Context) {
 		return
 	}
 
-	// 2. Otomatis Buat Jurnal Akuntansi (Debit: Persediaan, Kredit: Bank)
+	// === PERBAIKAN: Cari Akun Persediaan (13%) dan Bank ===
 	var inventoryAccount models.Account
 	var bankAccount models.Account
 
-	// Cari Akun Persediaan
-	tx.Where("code LIKE ? AND is_header = ?", "16%", false).First(&inventoryAccount)
-	if inventoryAccount.Code == "" {
-		tx.Where("code LIKE ? AND is_header = ?", "11%", false).First(&inventoryAccount)
-	}
+	// Sesuai Excel CoA: 130 adalah Persediaan Induk, 131 adalah Persediaan Gula (is_header = false)
+	tx.Where("code LIKE ? AND is_header = ?", "13%", false).First(&inventoryAccount)
 	
-	// Cari Akun Bank berdasarkan pilihan di Frontend
+	// Cari Akun Bank berdasarkan pilihan di Frontend (Kas atau Bank: Awalan 10 atau 11)
 	tx.Where("code = ? AND is_header = ?", input.PaymentAccount, false).First(&bankAccount)
 
-	if inventoryAccount.Code == "" || bankAccount.Code == "" {
+	if inventoryAccount.Code == "" {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan atau Akun Bank tidak ditemukan di sistem"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan Detail (Awalan 13) belum ada di Chart of Accounts!"})
+		return
+	}
+	if bankAccount.Code == "" {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Bank pembayar tidak valid atau merupakan akun Induk!"})
 		return
 	}
 
 	journalCode := "BILL-" + time.Now().Format("20060102") + "-" + id
 	journal := models.Journal{
 		Date:        time.Now(),
-		Description: "Pembayaran Tagihan PO #" + id + " (Ref: " + purchase.ReferenceNo + ") - " + journalCode, 
+		Description: "Pembayaran Tunai PO #" + id + " (Ref: " + purchase.ReferenceNo + ") - " + journalCode, 
 	}
 
 	if err := tx.Create(&journal).Error; err != nil {
@@ -388,7 +479,8 @@ func (pc *PurchaseController) CreateBill(c *gin.Context) {
 		return
 	}
 
-	// Debit: Persediaan (Barang Masuk) | Kredit: Bank (Uang Keluar)
+	// JURNAL STANDAR AKUNTANSI PEMBELIAN:
+	// Debit: Persediaan (Bertambah) | Kredit: Kas/Bank (Berkurang)
 	entries := []models.JournalEntry{
 		{JournalID: journal.ID, AccountCode: inventoryAccount.Code, Debit: purchase.Total, Credit: 0},
 		{JournalID: journal.ID, AccountCode: bankAccount.Code, Debit: 0, Credit: purchase.Total},
@@ -405,6 +497,6 @@ func (pc *PurchaseController) CreateBill(c *gin.Context) {
 	tx.Commit()
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"message": "Tagihan Pembelian lunas dibayar & Jurnal Kas Keluar otomatis tercatat!",
+		"message": "Pembelian berhasil dilunasi & Jurnal (Debit Persediaan, Kredit Bank) tercatat!",
 	})
 }

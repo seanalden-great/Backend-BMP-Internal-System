@@ -421,15 +421,36 @@ func (ac *AccountController) GetChartOfAccounts(c *gin.Context) {
 		}
 
 		// Hitung Sisa Saldo sesuai Pos Normal Balance
+		// if acc.NormalBalance == "D" {
+		// 	sisa = debit - kredit
+		// } else if acc.NormalBalance == "K" {
+		// 	sisa = kredit - debit
+		// } else {
+		// 	sisa = debit - kredit
+		// 	if sisa < 0 {
+		// 		sisa = -sisa // Absolutkan jika netral
+		// 	}
+		// }
+
+		// item := map[string]interface{}{
+		// 	"code":     acc.Code,
+		// 	"name":     acc.Name,
+		// 	"isHeader": acc.IsHeader,
+		// 	"pos":      acc.NormalBalance,
+		// 	"level":    acc.Level,
+		// }
+		// if debit > 0 { item["debit"] = debit }
+		// if kredit > 0 { item["kredit"] = kredit }
+		// if sisa > 0 { item["sisa"] = sisa }
+
+		// response = append(response, item)
+		
 		if acc.NormalBalance == "D" {
 			sisa = debit - kredit
 		} else if acc.NormalBalance == "K" {
 			sisa = kredit - debit
 		} else {
-			sisa = debit - kredit
-			if sisa < 0 {
-				sisa = -sisa // Absolutkan jika netral
-			}
+			sisa = debit - kredit // Netral
 		}
 
 		item := map[string]interface{}{
@@ -439,9 +460,11 @@ func (ac *AccountController) GetChartOfAccounts(c *gin.Context) {
 			"pos":      acc.NormalBalance,
 			"level":    acc.Level,
 		}
+		
 		if debit > 0 { item["debit"] = debit }
 		if kredit > 0 { item["kredit"] = kredit }
-		if sisa > 0 { item["sisa"] = sisa }
+		// Jangan diblokir dengan sisa > 0, karena saldo bank bisa minus!
+		item["sisa"] = sisa 
 
 		response = append(response, item)
 	}
