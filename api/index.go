@@ -264,7 +264,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"accounting-be/config"
+	// <--- Jangan lupa import middleware
 	"accounting-be/controllers"
+	"accounting-be/middleware"
 )
 
 //go:embed templates/*
@@ -297,6 +299,7 @@ func setupApp() {
 	app.SetHTMLTemplate(templ)
 
 	// 3. Inisialisasi Controller
+	authController := controllers.AuthController{DB: config.DB}
 	accountController := controllers.AccountController{DB: config.DB}
 	journalController := controllers.JournalController{DB: config.DB}
 	productController := controllers.ProductController{DB: config.DB}
@@ -317,8 +320,16 @@ func setupApp() {
 			"title": "Welcome to Go ERP Backend",
 		})
 	})
+	
+	// === RUTE TERBUKA (TIDAK BUTUH LOGIN) ===
+	authRoutes := app.Group("/api/auth")
+	{
+		authRoutes.POST("/login", authController.Login)
+		authRoutes.POST("/register", authController.Register) // Opsional: Beri proteksi terpisah nanti
+	}
 
 	api := app.Group("/api")
+	api.Use(middleware.JWTAuthMiddleware()) // <--- PASANG SATPAM DI SINI
 	{
 		api.GET("/ping", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Backend Go berjalan di Vercel!"})

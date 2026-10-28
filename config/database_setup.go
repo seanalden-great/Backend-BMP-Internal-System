@@ -199,6 +199,7 @@ func ConnectDatabase() {
 		&models.CompanySetting{},
 		&models.FixedAsset{},
 		&models.FAQ{},
+		&models.User{},
 	)
 	if err != nil {
 		log.Println("Error saat AutoMigrate:", err)
