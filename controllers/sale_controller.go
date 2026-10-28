@@ -474,6 +474,105 @@ type InvoiceInput struct {
 // 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Tagihan lunas! Dana masuk ke Bank & Jurnal berhasil diterbitkan."})
 // }
 
+// // PUT /api/sales/:id/invoice (Tagihan: Otomatis Buat Jurnal Kas Masuk, Pendapatan, dan HPP)
+// func (sc *SaleController) CreateInvoice(c *gin.Context) {
+// 	id := c.Param("id")
+// 	var input InvoiceInput
+// 	if err := c.ShouldBindJSON(&input); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Harap pilih rekening Bank penerima dana"})
+// 		return
+// 	}
+
+// 	var sale models.Sale
+// 	if err := sc.DB.Preload("Items").First(&sale, id).Error; err != nil {
+// 		c.JSON(http.StatusNotFound, gin.H{"error": "Data pengiriman tidak ditemukan"})
+// 		return
+// 	}
+
+// 	if sale.Status != "Pengiriman" {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Hanya dokumen dengan status 'Pengiriman' yang dapat ditagih/dilunasi"})
+// 		return
+// 	}
+
+// 	tx := sc.DB.Begin()
+// 	sale.Status = "Tagihan"
+// 	sale.PaymentAccountCode = &input.PaymentAccount // Simpan referensi Bank ke Header SO
+// 	if err := tx.Save(&sale).Error; err != nil {
+// 		tx.Rollback()
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate status tagihan"})
+// 		return
+// 	}
+
+// 	// Hitung Total HPP dari item yang terjual
+// 	var totalHPP float64
+// 	for _, item := range sale.Items {
+// 		var prod models.Product
+// 		tx.Where("sku = ?", item.ProductSKU).First(&prod)
+// 		totalHPP += float64(item.Quantity) * prod.HPP
+// 	}
+
+// 	// === PERBAIKAN PENCARIAN AKUN Cerdas (Fleksibel dengan CoA Anda) ===
+// 	var bankAcc, revAcc, cogsAcc, invAcc models.Account
+	
+// 	// 1. Cari Akun Bank (dari input user di frontend)
+// 	tx.Where("code = ? AND is_header = ?", input.PaymentAccount, false).First(&bankAcc)
+	
+// 	// 2. Cari Pendapatan (Bisa awalan 41, atau 50 seperti '509' milik Anda)
+// 	tx.Where("code LIKE ? AND is_header = ?", "41%", false).First(&revAcc)
+// 	if revAcc.Code == "" {
+// 		tx.Where("code LIKE ? AND is_header = ?", "50%", false).First(&revAcc)
+// 	}
+// 	if revAcc.Code == "" {
+// 		tx.Where("code LIKE ? AND is_header = ?", "4%", false).First(&revAcc) // Fallback terakhir awalan 4
+// 	}
+
+// 	// 3. Cari HPP / Beban Pokok (Bisa awalan 51, 60, atau 5)
+// 	tx.Where("code LIKE ? AND is_header = ?", "51%", false).First(&cogsAcc)
+// 	if cogsAcc.Code == "" {
+// 		tx.Where("code LIKE ? AND is_header = ?", "60%", false).First(&cogsAcc)
+// 	}
+// 	if cogsAcc.Code == "" {
+// 		tx.Where("code LIKE ? AND is_header = ?", "5%", false).First(&cogsAcc)
+// 	}
+	
+// 	// 4. Cari Persediaan (Bisa awalan 16, atau 11)
+// 	tx.Where("code LIKE ? AND is_header = ?", "16%", false).First(&invAcc) 
+// 	if invAcc.Code == "" {
+// 		tx.Where("code LIKE ? AND is_header = ?", "11%", false).First(&invAcc) 
+// 	}
+
+// 	// Validasi Error Spesifik agar mudah di-debug
+// 	if bankAcc.Code == "" {
+// 		tx.Rollback()
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Kas/Bank terpilih tidak ditemukan atau merupakan akun Induk."})
+// 		return
+// 	}
+// 	if revAcc.Code == "" {
+// 		tx.Rollback()
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Pendapatan Penjualan (Detail) tidak ditemukan di sistem. Pastikan ada akun dengan awalan 4 atau 50."})
+// 		return
+// 	}
+
+// 	journalCode := "INV-S-" + time.Now().Format("20060102") + "-" + id
+
+// 	// A. Buat Jurnal Kas/Bank (Debit) & Pendapatan (Kredit)
+// 	j1 := models.Journal{Date: time.Now(), Description: "Penerimaan Dana Penjualan SO #" + id + " (" + journalCode + ")"}
+// 	tx.Create(&j1)
+// 	tx.Create(&models.JournalEntry{JournalID: j1.ID, AccountCode: bankAcc.Code, Debit: sale.Total, Credit: 0})
+// 	tx.Create(&models.JournalEntry{JournalID: j1.ID, AccountCode: revAcc.Code, Debit: 0, Credit: sale.Total})
+
+// 	// B. Buat Jurnal HPP (Debit) & Persediaan (Kredit)
+// 	if cogsAcc.Code != "" && invAcc.Code != "" && totalHPP > 0 {
+// 		j2 := models.Journal{Date: time.Now(), Description: "HPP Penjualan SO #" + id + " (" + journalCode + ")"}
+// 		tx.Create(&j2)
+// 		tx.Create(&models.JournalEntry{JournalID: j2.ID, AccountCode: cogsAcc.Code, Debit: totalHPP, Credit: 0})
+// 		tx.Create(&models.JournalEntry{JournalID: j2.ID, AccountCode: invAcc.Code, Debit: 0, Credit: totalHPP})
+// 	}
+
+// 	tx.Commit()
+// 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Tagihan lunas! Dana masuk ke Bank & Jurnal berhasil diterbitkan."})
+// }
+
 // PUT /api/sales/:id/invoice (Tagihan: Otomatis Buat Jurnal Kas Masuk, Pendapatan, dan HPP)
 func (sc *SaleController) CreateInvoice(c *gin.Context) {
 	id := c.Param("id")
@@ -511,37 +610,31 @@ func (sc *SaleController) CreateInvoice(c *gin.Context) {
 		totalHPP += float64(item.Quantity) * prod.HPP
 	}
 
-	// === PERBAIKAN PENCARIAN AKUN Cerdas (Fleksibel dengan CoA Anda) ===
+	// === PERBAIKAN PENCARIAN AKUN (Selaras dengan CoA Excel Anda) ===
 	var bankAcc, revAcc, cogsAcc, invAcc models.Account
 	
 	// 1. Cari Akun Bank (dari input user di frontend)
 	tx.Where("code = ? AND is_header = ?", input.PaymentAccount, false).First(&bankAcc)
 	
-	// 2. Cari Pendapatan (Bisa awalan 41, atau 50 seperti '509' milik Anda)
-	tx.Where("code LIKE ? AND is_header = ?", "41%", false).First(&revAcc)
+	// 2. Cari Pendapatan (CoA Excel: 501, 502, dst)
+	tx.Where("code LIKE ? AND is_header = ?", "50%", false).First(&revAcc)
 	if revAcc.Code == "" {
-		tx.Where("code LIKE ? AND is_header = ?", "50%", false).First(&revAcc)
-	}
-	if revAcc.Code == "" {
-		tx.Where("code LIKE ? AND is_header = ?", "4%", false).First(&revAcc) // Fallback terakhir awalan 4
+		tx.Where("code LIKE ? AND is_header = ?", "4%", false).First(&revAcc) // Fallback umum
 	}
 
-	// 3. Cari HPP / Beban Pokok (Bisa awalan 51, 60, atau 5)
-	tx.Where("code LIKE ? AND is_header = ?", "51%", false).First(&cogsAcc)
+	// 3. Cari HPP / Beban Pokok (CoA Excel: 601, 602, dst)
+	tx.Where("code LIKE ? AND is_header = ?", "60%", false).First(&cogsAcc)
 	if cogsAcc.Code == "" {
-		tx.Where("code LIKE ? AND is_header = ?", "60%", false).First(&cogsAcc)
-	}
-	if cogsAcc.Code == "" {
-		tx.Where("code LIKE ? AND is_header = ?", "5%", false).First(&cogsAcc)
+		tx.Where("code LIKE ? AND is_header = ?", "5%", false).First(&cogsAcc) // Fallback umum
 	}
 	
-	// 4. Cari Persediaan (Bisa awalan 16, atau 11)
-	tx.Where("code LIKE ? AND is_header = ?", "16%", false).First(&invAcc) 
+	// 4. Cari Persediaan (CoA Excel: 131, 132, dst)
+	tx.Where("code LIKE ? AND is_header = ?", "13%", false).First(&invAcc) 
 	if invAcc.Code == "" {
-		tx.Where("code LIKE ? AND is_header = ?", "11%", false).First(&invAcc) 
+		tx.Where("code LIKE ? AND is_header = ?", "16%", false).First(&invAcc) // Fallback umum
 	}
 
-	// Validasi Error Spesifik agar mudah di-debug
+	// Validasi Error Spesifik
 	if bankAcc.Code == "" {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Kas/Bank terpilih tidak ditemukan atau merupakan akun Induk."})
@@ -549,20 +642,25 @@ func (sc *SaleController) CreateInvoice(c *gin.Context) {
 	}
 	if revAcc.Code == "" {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Pendapatan Penjualan (Detail) tidak ditemukan di sistem. Pastikan ada akun dengan awalan 4 atau 50."})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Pendapatan (Detail) tidak ditemukan. Pastikan ada akun dengan awalan 50 di CoA."})
+		return
+	}
+	if invAcc.Code == "" || cogsAcc.Code == "" {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Akun Persediaan (13) atau HPP (60) belum dikonfigurasi di CoA."})
 		return
 	}
 
 	journalCode := "INV-S-" + time.Now().Format("20060102") + "-" + id
 
-	// A. Buat Jurnal Kas/Bank (Debit) & Pendapatan (Kredit)
+	// A. JURNAL PENJUALAN TUNAI (Debit: Bank Bertambah | Kredit: Pendapatan Bertambah)
 	j1 := models.Journal{Date: time.Now(), Description: "Penerimaan Dana Penjualan SO #" + id + " (" + journalCode + ")"}
 	tx.Create(&j1)
 	tx.Create(&models.JournalEntry{JournalID: j1.ID, AccountCode: bankAcc.Code, Debit: sale.Total, Credit: 0})
 	tx.Create(&models.JournalEntry{JournalID: j1.ID, AccountCode: revAcc.Code, Debit: 0, Credit: sale.Total})
 
-	// B. Buat Jurnal HPP (Debit) & Persediaan (Kredit)
-	if cogsAcc.Code != "" && invAcc.Code != "" && totalHPP > 0 {
+	// B. JURNAL HPP (Debit: Beban HPP Bertambah | Kredit: Persediaan Berkurang)
+	if totalHPP > 0 {
 		j2 := models.Journal{Date: time.Now(), Description: "HPP Penjualan SO #" + id + " (" + journalCode + ")"}
 		tx.Create(&j2)
 		tx.Create(&models.JournalEntry{JournalID: j2.ID, AccountCode: cogsAcc.Code, Debit: totalHPP, Credit: 0})
@@ -570,5 +668,5 @@ func (sc *SaleController) CreateInvoice(c *gin.Context) {
 	}
 
 	tx.Commit()
-	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Tagihan lunas! Dana masuk ke Bank & Jurnal berhasil diterbitkan."})
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Tagihan lunas! Dana masuk ke Bank & Jurnal Penjualan berhasil diterbitkan."})
 }
